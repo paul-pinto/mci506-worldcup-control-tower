@@ -1,203 +1,266 @@
-"""
-eda_local.py - Aplanamiento y perfil de calidad de datos extraídos
-Proyecto: MCI506 - World Cup Data Control Tower
-"""
-
+import glob
 import json
 import os
-from pathlib import Path
+from typing import Any, Dict, List
 
 import pandas as pd
 
-from scripts.config import RAW_DIR, PROCESSED_DIR, EDA_DIR
+from scripts.config import EDA_DIR
+from scripts.utils import ensure_dir
 
 
-def find_latest_run(entity: str) -> str:
+def latest_file(pattern: str) -> str:
     """
-    Encuentra el run_id más reciente para una entidad.
-
-    Args:
-        entity: nombre de la entidad (fixtures, teams, standings)
-    Returns:
-        ruta al archivo JSON más reciente
+    Return most recent file matching a glob pattern.
     """
-    base = Path(RAW_DIR) / entity
-    runs = sorted(base.glob("run_id=*"), reverse=True)
-    if not runs:
-        raise FileNotFoundError(f"No runs found for entity: {entity}")
-    files = list(runs[0].glob("*.json"))
+    files = glob.glob(pattern, recursive=True)
+
     if not files:
-        raise FileNotFoundError(f"No JSON files in {runs[0]}")
-    return str(files[0])
+        raise FileNotFoundError(f"No files found for pattern: {pattern}")
+
+    return max(files, key=os.path.getmtime)
 
 
-def flatten_fixtures(path: str) -> pd.DataFrame:
+def load_api_response(path: str) -> Dict[str, Any]:
     """
-    Aplana el JSON de fixtures a un DataFrame tabular.
-
-    Args:
-        path: ruta al archivo JSON de fixtures
-    Returns:
-        DataFrame con una fila por partido
+    Load API-Football JSON response.
     """
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    rows = []
-    for item in data.get("response", []):
+
+def flatten_fixtures(payload: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Flatten fixtures response into tabular format.
+    """
+    rows: List[Dict[str, Any]] = []
+
+    for item in payload.get("response", []):
         fixture = item.get("fixture", {})
-        teams   = item.get("teams", {})
-        goals   = item.get("goals", {})
-        score   = item.get("score", {})
+        league = item.get("league", {})
+        teams = item.get("teams", {})
+        goals = item.get("goals", {})
+        score = item.get("score", {})
 
-        rows.append({
-            "fixture_id":       fixture.get("id"),
-            "match_date":       fixture.get("date"),
-            "season":           data.get("parameters", {}).get("season"),
-            "round":            item.get("league", {}).get("round"),
-            "venue_name":       fixture.get("venue", {}).get("name"),
-            "venue_city":       fixture.get("venue", {}).get("city"),
-            "home_team_id":     teams.get("home", {}).get("id"),
-            "home_team_name":   teams.get("home", {}).get("name"),
-            "away_team_id":     teams.get("away", {}).get("id"),
-            "away_team_name":   teams.get("away", {}).get("name"),
-            "goals_home":       goals.get("home"),
-            "goals_away":       goals.get("away"),
-            "status_short":     fixture.get("status", {}).get("short"),
-            "status_long":      fixture.get("status", {}).get("long"),
-        })
+        venue = fixture.get("venue", {})
+        status = fixture.get("status", {})
+
+        home = teams.get("home", {})
+        away = teams.get("away", {})
+
+        rows.append(
+            {
+                "fixture_id": fixture.get("id"),
+                "referee": fixture.get("referee"),
+                "timezone": fixture.get("timezone"),
+                "match_date": fixture.get("date"),
+                "timestamp": fixture.get("timestamp"),
+                "period_first": fixture.get("periods", {}).get("first"),
+                "period_second": fixture.get("periods", {}).get("second"),
+                "venue_id": venue.get("id"),
+                "venue_name": venue.get("name"),
+                "venue_city": venue.get("city"),
+                "status_long": status.get("long"),
+                "status_short": status.get("short"),
+                "elapsed": status.get("elapsed"),
+                "league_id": league.get("id"),
+                "league_name": league.get("name"),
+                "country": league.get("country"),
+                "season": league.get("season"),
+                "round": league.get("round"),
+                "home_team_id": home.get("id"),
+                "home_team_name": home.get("name"),
+                "home_team_winner": home.get("winner"),
+                "away_team_id": away.get("id"),
+                "away_team_name": away.get("name"),
+                "away_team_winner": away.get("winner"),
+                "goals_home": goals.get("home"),
+                "goals_away": goals.get("away"),
+                "halftime_home": score.get("halftime", {}).get("home"),
+                "halftime_away": score.get("halftime", {}).get("away"),
+                "fulltime_home": score.get("fulltime", {}).get("home"),
+                "fulltime_away": score.get("fulltime", {}).get("away"),
+                "extratime_home": score.get("extratime", {}).get("home"),
+                "extratime_away": score.get("extratime", {}).get("away"),
+                "penalty_home": score.get("penalty", {}).get("home"),
+                "penalty_away": score.get("penalty", {}).get("away"),
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
-def flatten_teams(path: str) -> pd.DataFrame:
+def flatten_teams(payload: Dict[str, Any]) -> pd.DataFrame:
     """
-    Aplana el JSON de teams a un DataFrame tabular.
-
-    Args:
-        path: ruta al archivo JSON de teams
-    Returns:
-        DataFrame con una fila por equipo
+    Flatten teams response into tabular format.
     """
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+    rows: List[Dict[str, Any]] = []
 
-    rows = []
-    for item in data.get("response", []):
+    for item in payload.get("response", []):
         team = item.get("team", {})
-        rows.append({
-            "team_id":       team.get("id"),
-            "team_name":     team.get("name"),
-            "team_code":     team.get("code"),
-            "team_country":  team.get("country"),
-            "team_national": team.get("national"),
-            "team_logo":     team.get("logo"),
-        })
+        venue = item.get("venue", {})
+
+        rows.append(
+            {
+                "team_id": team.get("id"),
+                "team_name": team.get("name"),
+                "team_code": team.get("code"),
+                "team_country": team.get("country"),
+                "team_founded": team.get("founded"),
+                "team_national": team.get("national"),
+                "team_logo": team.get("logo"),
+                "venue_id": venue.get("id"),
+                "venue_name": venue.get("name"),
+                "venue_address": venue.get("address"),
+                "venue_city": venue.get("city"),
+                "venue_capacity": venue.get("capacity"),
+                "venue_surface": venue.get("surface"),
+                "venue_image": venue.get("image"),
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
-def flatten_standings(path: str) -> pd.DataFrame:
+def flatten_standings(payload: Dict[str, Any]) -> pd.DataFrame:
     """
-    Aplana el JSON de standings a un DataFrame tabular.
-
-    Args:
-        path: ruta al archivo JSON de standings
-    Returns:
-        DataFrame con una fila por equipo en su grupo
+    Flatten standings response into tabular format.
     """
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+    rows: List[Dict[str, Any]] = []
 
-    rows = []
-    season = data.get("parameters", {}).get("season")
-    for league in data.get("response", []):
-        for group in league.get("league", {}).get("standings", []):
-            for item in group:
-                team  = item.get("team", {})
-                all_s = item.get("all", {})
-                goals = all_s.get("goals", {})
-                rows.append({
-                    "season":       season,
-                    "group_name":   item.get("group"),
-                    "rank":         item.get("rank"),
-                    "team_id":      team.get("id"),
-                    "team_name":    team.get("name"),
-                    "points":       item.get("points"),
-                    "played":       all_s.get("played"),
-                    "win":          all_s.get("win"),
-                    "draw":         all_s.get("draw"),
-                    "lose":         all_s.get("lose"),
-                    "goals_for":    goals.get("for"),
-                    "goals_against":goals.get("against"),
-                    "goals_diff":   item.get("goalsDiff"),
-                })
+    for league_block in payload.get("response", []):
+        league = league_block.get("league", {})
+        standings_groups = league.get("standings", [])
+
+        for group_table in standings_groups:
+            for row in group_table:
+                team = row.get("team", {})
+                all_stats = row.get("all", {})
+                goals = all_stats.get("goals", {})
+
+                rows.append(
+                    {
+                        "league_id": league.get("id"),
+                        "league_name": league.get("name"),
+                        "country": league.get("country"),
+                        "season": league.get("season"),
+                        "group": row.get("group"),
+                        "rank": row.get("rank"),
+                        "team_id": team.get("id"),
+                        "team_name": team.get("name"),
+                        "points": row.get("points"),
+                        "goals_diff": row.get("goalsDiff"),
+                        "form": row.get("form"),
+                        "status": row.get("status"),
+                        "description": row.get("description"),
+                        "played": all_stats.get("played"),
+                        "win": all_stats.get("win"),
+                        "draw": all_stats.get("draw"),
+                        "lose": all_stats.get("lose"),
+                        "goals_for": goals.get("for"),
+                        "goals_against": goals.get("against"),
+                        "update": row.get("update"),
+                    }
+                )
 
     return pd.DataFrame(rows)
 
 
-def save_formats(df: pd.DataFrame, name: str) -> None:
+def basic_profile(df: pd.DataFrame, name: str) -> pd.DataFrame:
     """
-    Guarda un DataFrame en CSV y Parquet.
-
-    Args:
-        df: DataFrame a guardar
-        name: nombre base del archivo (sin extensión)
+    Build a compact data quality profile for a dataframe.
     """
-    os.makedirs(PROCESSED_DIR, exist_ok=True)
-    df.to_csv(f"{PROCESSED_DIR}/{name}.csv", index=False)
-    df.to_parquet(f"{PROCESSED_DIR}/{name}.parquet", index=False)
-    print(f"[eda_local] Guardado: {name} ({len(df)} filas)")
+    if df.empty:
+        return pd.DataFrame(
+            [
+                {
+                    "table_name": name,
+                    "column": "__empty_table__",
+                    "dtype": "none",
+                    "rows": 0,
+                    "nulls": 0,
+                    "null_pct": 0.0,
+                    "distinct": 0,
+                }
+            ]
+        )
+
+    profile = pd.DataFrame(
+        {
+            "column": df.columns,
+            "dtype": [str(df[col].dtype) for col in df.columns],
+            "rows": len(df),
+            "nulls": [int(df[col].isna().sum()) for col in df.columns],
+            "null_pct": [round(float(df[col].isna().mean() * 100), 2) for col in df.columns],
+            "distinct": [int(df[col].nunique(dropna=True)) for col in df.columns],
+        }
+    )
+
+    profile.insert(0, "table_name", name)
+    return profile
 
 
-def build_quality_profile(dfs: dict) -> pd.DataFrame:
-    """
-    Genera un perfil de calidad básico para cada DataFrame.
+def main() -> None:
+    ensure_dir(EDA_DIR)
+    ensure_dir("data/processed")
 
-    Args:
-        dfs: diccionario {nombre: DataFrame}
-    Returns:
-        DataFrame con métricas de calidad por tabla
-    """
-    rows = []
-    for name, df in dfs.items():
-        for col in df.columns:
-            rows.append({
-                "table":    name,
-                "column":   col,
-                "dtype":    str(df[col].dtype),
-                "rows":     len(df),
-                "nulls":    df[col].isnull().sum(),
-                "pct_null": round(df[col].isnull().mean() * 100, 2),
-                "distinct": df[col].nunique(),
-            })
-    return pd.DataFrame(rows)
+    fixtures_path = latest_file("data/raw/fixtures/run_id=*/fixtures_*.json")
+    teams_path = latest_file("data/raw/teams/run_id=*/teams_*.json")
+    standings_path = latest_file("data/raw/standings/run_id=*/standings_*.json")
 
+    print(f"[+] Fixtures file: {fixtures_path}")
+    print(f"[+] Teams file: {teams_path}")
+    print(f"[+] Standings file: {standings_path}")
 
-def main():
-    """Función principal: aplana JSONs y genera perfil de calidad."""
-    os.makedirs(EDA_DIR, exist_ok=True)
+    fixtures_payload = load_api_response(fixtures_path)
+    teams_payload = load_api_response(teams_path)
+    standings_payload = load_api_response(standings_path)
 
-    fixtures_path  = find_latest_run("fixtures")
-    teams_path     = find_latest_run("teams")
-    standings_path = find_latest_run("standings")
+    fixtures_df = flatten_fixtures(fixtures_payload)
+    teams_df = flatten_teams(teams_payload)
+    standings_df = flatten_standings(standings_payload)
 
-    df_fixtures  = flatten_fixtures(fixtures_path)
-    df_teams     = flatten_teams(teams_path)
-    df_standings = flatten_standings(standings_path)
+    print("\n[+] Shapes")
+    print(f"fixtures: {fixtures_df.shape}")
+    print(f"teams: {teams_df.shape}")
+    print(f"standings: {standings_df.shape}")
 
-    save_formats(df_fixtures,  "fixtures_flat")
-    save_formats(df_teams,     "teams_flat")
-    save_formats(df_standings, "standings_flat")
+    fixtures_df.to_csv("data/processed/fixtures_flat.csv", index=False)
+    teams_df.to_csv("data/processed/teams_flat.csv", index=False)
+    standings_df.to_csv("data/processed/standings_flat.csv", index=False)
 
-    dfs = {
-        "fixtures":  df_fixtures,
-        "teams":     df_teams,
-        "standings": df_standings,
-    }
-    df_quality = build_quality_profile(dfs)
-    df_quality.to_csv(f"{EDA_DIR}/data_quality_profile.csv", index=False)
-    print(f"[eda_local] Perfil de calidad guardado en {EDA_DIR}/data_quality_profile.csv")
+    fixtures_df.to_parquet("data/processed/fixtures_flat.parquet", index=False)
+    teams_df.to_parquet("data/processed/teams_flat.parquet", index=False)
+    standings_df.to_parquet("data/processed/standings_flat.parquet", index=False)
+
+    profiles = pd.concat(
+        [
+            basic_profile(fixtures_df, "fixtures"),
+            basic_profile(teams_df, "teams"),
+            basic_profile(standings_df, "standings"),
+        ],
+        ignore_index=True,
+    )
+
+    profiles.to_csv("data/eda/data_quality_profile.csv", index=False)
+
+    print("\n[+] Fixtures sample")
+    print(fixtures_df.head(10).to_string())
+
+    print("\n[+] Teams sample")
+    print(teams_df.head(10).to_string())
+
+    print("\n[+] Standings sample")
+    print(standings_df.head(10).to_string())
+
+    print("\n[+] EDA outputs saved:")
+    print("    - data/processed/fixtures_flat.csv")
+    print("    - data/processed/teams_flat.csv")
+    print("    - data/processed/standings_flat.csv")
+    print("    - data/processed/fixtures_flat.parquet")
+    print("    - data/processed/teams_flat.parquet")
+    print("    - data/processed/standings_flat.parquet")
+    print("    - data/eda/data_quality_profile.csv")
 
 
 if __name__ == "__main__":
