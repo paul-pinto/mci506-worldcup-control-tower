@@ -49,4 +49,7 @@ jobs:
       - name: Run local EDA flattening
         run: |
           python -m scripts.eda_local
-    
+
+      - name: Run EDA summaries
+        run: |
+          python -m scripts.eda_summary    
