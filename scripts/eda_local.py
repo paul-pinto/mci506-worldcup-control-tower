@@ -45,6 +45,9 @@ def flatten_fixtures(path: str) -> pd.DataFrame:
 
     rows = []
     response = data.get("response", [])
+    print(f"[DEBUG] Total items en response: {len(response)}")
+    if response:
+        print(f"[DEBUG] Keys del primer item: {list(response[0].keys())}")
 
     for item in response:
         fixture = item.get("fixture", {})
