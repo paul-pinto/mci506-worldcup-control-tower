@@ -49,6 +49,13 @@ jobs:
       - name: Run local EDA flattening
         run: |
           python -m scripts.eda_local
+      - name: Run EDA summaries
+        run: |
+          python -m scripts.eda_summary
+
+      - name: Upload to GCS
+        run: |
+          python -m scripts.load_gcs
 
       - name: Run EDA summaries
         run: |
