@@ -44,35 +44,31 @@ def flatten_fixtures(path: str) -> pd.DataFrame:
         data = json.load(f)
 
     rows = []
-    response = data.get("response", [])
-    print(f"[DEBUG] Total items en response: {len(response)}")
-    if response:
-        print(f"[DEBUG] Keys del primer item: {list(response[0].keys())}")
-
-    for item in response:
+    for item in data.get("response", []):
         fixture = item.get("fixture", {})
-        league  = item.get("league", {})
         teams   = item.get("teams", {})
         goals   = item.get("goals", {})
+        score   = item.get("score", {})
 
         rows.append({
-            "fixture_id":     fixture.get("id"),
-            "match_date":     fixture.get("date"),
-            "season":         league.get("season"),
-            "round":          league.get("round"),
-            "venue_name":     fixture.get("venue", {}).get("name"),
-            "venue_city":     fixture.get("venue", {}).get("city"),
-            "home_team_id":   teams.get("home", {}).get("id"),
-            "home_team_name": teams.get("home", {}).get("name"),
-            "away_team_id":   teams.get("away", {}).get("id"),
-            "away_team_name": teams.get("away", {}).get("name"),
-            "goals_home":     goals.get("home"),
-            "goals_away":     goals.get("away"),
-            "status_short":   fixture.get("status", {}).get("short"),
-            "status_long":    fixture.get("status", {}).get("long"),
+            "fixture_id":       fixture.get("id"),
+            "match_date":       fixture.get("date"),
+            "season":           data.get("parameters", {}).get("season"),
+            "round":            item.get("league", {}).get("round"),
+            "venue_name":       fixture.get("venue", {}).get("name"),
+            "venue_city":       fixture.get("venue", {}).get("city"),
+            "home_team_id":     teams.get("home", {}).get("id"),
+            "home_team_name":   teams.get("home", {}).get("name"),
+            "away_team_id":     teams.get("away", {}).get("id"),
+            "away_team_name":   teams.get("away", {}).get("name"),
+            "goals_home":       goals.get("home"),
+            "goals_away":       goals.get("away"),
+            "status_short":     fixture.get("status", {}).get("short"),
+            "status_long":      fixture.get("status", {}).get("long"),
         })
 
     return pd.DataFrame(rows)
+
 
 def flatten_teams(path: str) -> pd.DataFrame:
     """
