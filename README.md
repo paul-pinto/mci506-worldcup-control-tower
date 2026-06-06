@@ -126,10 +126,10 @@ python -m scripts.load_gcs
 | Paul Pinto | Estructura del proyecto / load_gcs.py |
 | Ronald | Extracción / extract.py |
 | Pablo Linares | EDA local / README / SQL validaciones |
-| Patricia | EDA summary / Alertas Slack |
+| Patricia Aban | EDA summary / Alertas Slack |
 
 ## Links
 
 - Repositorio: https://github.com/paul-pinto/mci506-worldcup-control-tower
-- Dashboard Looker Studio: [Agregar enlace]
+- Dashboard Looker Studio: https://datastudio.google.com/u/0/reporting/41fa5555-1687-4a2b-918c-0b8321cbea44/page/8vszF
 - Proyecto GCP: mci506-paul-pinto
