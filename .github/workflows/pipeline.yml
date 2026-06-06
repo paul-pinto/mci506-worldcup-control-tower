@@ -56,10 +56,6 @@ jobs:
       - name: Upload to GCS
         run: |
           python -m scripts.load_gcs
-
-      - name: Run EDA summaries
-        run: |
-          python -m scripts.eda_summary 
       
       - name: Enviar Alerta de Emergencia a Slack
         if: failure()
