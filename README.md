@@ -122,11 +122,11 @@ python -m scripts.load_gcs
 ## Equipo
 
 | Nombre | Rol |
-|---|---|
-| Paul Pinto | Estructura del proyecto / load_gcs.py |
-| Ronald | Extracción / extract.py |
-| Pablo Linares | EDA local / README / SQL validaciones |
-| Patricia Aban | EDA summary / Alertas Slack |
+|--------|-----|
+| Jhonny Paul Pinto Phillips | Estructura del proyecto / load_gcs.py |
+| Ronald Marcelo Pinto Delgadillo  | Extracción / extract.py |
+| Pablo Andrés Linares Ruíz | EDA local / README / SQL validaciones |
+| Ana Patricia Abán Monzon | EDA summary / Alertas Slack |
 
 ## Links
 
