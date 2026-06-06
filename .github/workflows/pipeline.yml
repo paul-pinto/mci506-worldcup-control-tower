@@ -59,4 +59,12 @@ jobs:
 
       - name: Run EDA summaries
         run: |
-          python -m scripts.eda_summary    
+          python -m scripts.eda_summary 
+      
+      - name: Enviar Alerta de Emergencia a Slack
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"text": "*¡ALERTA EN EL PIPELINE!*\n\nEl pipeline de la Copa del Mundo ha fallado en la ejecución diaria.\n• *Entorno:* GitHub Actions\n• *Estado:* Error crítico detectado.\n\nPor favor, ingresa a la pestaña de Actions para revisar los logs."}' \
+               ${{ secrets.SLACK_WEBHOOK }}
